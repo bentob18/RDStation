@@ -22,7 +22,7 @@ end_date_global = datetime.today()
 all_deals = []
 
 # Dividindo o período por intervalos mensais (pode ajustar conforme a necessidade)
-current_start = current_end + timedelta(seconds=1)
+current_start = start_date_global
 while current_start < end_date_global:
     current_end = current_start + timedelta(days=30)
     # Garante que current_end não ultrapasse o final do período
@@ -67,7 +67,7 @@ while current_start < end_date_global:
         time.sleep(rate_limit_pause)
 
     # Avança para o próximo período
-    current_start = current_end
+    current_start = current_end + timedelta(seconds=1)
 
 # 🔹 Criar um DataFrame do pandas com os dados coletados
 df = pd.DataFrame(all_deals)
