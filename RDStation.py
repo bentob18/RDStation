@@ -22,7 +22,7 @@ end_date_global = datetime.today()
 all_deals = []
 
 # Dividindo o período por intervalos mensais (pode ajustar conforme a necessidade)
-current_start = start_date_global
+current_start = current_end + timedelta(seconds=1)
 while current_start < end_date_global:
     current_end = current_start + timedelta(days=30)
     # Garante que current_end não ultrapasse o final do período
