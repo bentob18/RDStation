@@ -1159,7 +1159,6 @@ def update_tabelas(period):
     return tabela_1, tabela_2, tabela_total, tabela_pipeline
 
 # ========== RUN ==========
-server = app.server  # necessário para o gunicorn encontrar o servidor
 if __name__ == "__main__":
     app.run(debug=True)
 
