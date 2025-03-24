@@ -1,1 +1,1 @@
-web: python endpoint.py
+web: gunicorn RDStation:server
