@@ -51,7 +51,7 @@ while current_start < end_date_global:
             print(f"Erro na requisição: {response.status_code}")
             break
 
-        data = response.json()
+                data = response.json()
         deals = data.get("deals", [])
 
         if not deals:
@@ -60,8 +60,8 @@ while current_start < end_date_global:
         all_deals.extend(deals)
         print(f"  Página {page} retornou {len(deals)} deals")
 
-        if not data.get("has_more", False):
-            break  # Não há mais páginas para este intervalo
+        if len(deals) < limit:
+            break  # Última página atingida
 
         page += 1
         time.sleep(rate_limit_pause)
