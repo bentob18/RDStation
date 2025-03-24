@@ -1,1 +1,1 @@
-﻿web: gunicorn RDStation:server
+web: python RDStation.py 
