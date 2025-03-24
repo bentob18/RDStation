@@ -17,7 +17,7 @@ rate_limit_pause = 0.1  # pausa de 0.1s para ficar abaixo do limite de 120 req/s
 
 # Defina o intervalo total que você deseja consultar
 start_date_global = datetime(2023, 6, 6)
-end_date_global = datetime.today()
+end_date_global = end_date_global = df["created_at"].max()
 
 all_deals = []
 
