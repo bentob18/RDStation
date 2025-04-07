@@ -6,7 +6,7 @@ import requests
 import pandas as pd
 import time
 from datetime import datetime, timedelta
-df_merge = pd.read_xlsx('dados.xlsx')
+df_merge = pd.read_excel('dados.xlsx')
 # # Configurações iniciais
 # token = "67c0c74e0fca36001419b7f4"
 # base_url = "https://crm.rdstation.com/api/v1/deals"
