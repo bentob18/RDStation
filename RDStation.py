@@ -2,10 +2,10 @@
 # # Listar negociações
 
 # # %%
-# import requests
-# import pandas as pd
-# import time
-# from datetime import datetime, timedelta
+import requests
+import pandas as pd
+import time
+from datetime import datetime, timedelta
 
 # # Configurações iniciais
 # token = "67c0c74e0fca36001419b7f4"
