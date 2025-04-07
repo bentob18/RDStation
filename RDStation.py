@@ -563,7 +563,7 @@ app.config.suppress_callback_exceptions = True
 sidebar = html.Div([
     html.H2("Dashboard", className="display-6", style={"color": "white"}),
     html.Hr(),
-    html.P("LCBank Dashboard", className="lead", style={"color": "white"}),
+    html.P("LCbank Dashboard", className="lead", style={"color": "white"}),
     dbc.Nav([
         dbc.NavLink("Home", href="/home", id="home-button", style={"color": "white"}),
         dbc.NavLink("Relatório", href="/leads", id="leads-button", style={"color": "white"}),
@@ -583,7 +583,7 @@ sidebar = html.Div([
 ], style={"position": "fixed", "top": 0, "left": 0, "bottom": 0, "width": "20%", "padding": "20px", "background-color": "#030257"})
 
 content = html.Div([
-    html.H2("Dashboard de Dados LCBank", className="display-4"),
+    html.H2("Dashboard de Dados LCbank", className="display-4"),
     html.Hr(),
     html.Div([
         html.H5("Selecionar Período de Datas", style={"margin-bottom": "10px"}),
@@ -615,7 +615,7 @@ def display_page(n_home, n_leads, n_atendentes, n_tabelas):
     if not ctx.triggered:
         return html.Div([
             html.Div([
-                html.H2("🏠 Bem-vindo ao Dashboard LCBank", style={"color": "#2C3E50", "marginBottom": "10px"}),
+                html.H2("🏠 Bem-vindo ao Dashboard LCbank", style={"color": "#2C3E50", "marginBottom": "10px"}),
                 html.P(
                     "Use o menu à esquerda para navegar entre as análises de leads, atendentes e tabelas específicas.",
                     style={"fontSize": "16px", "color": "#555"}
@@ -636,7 +636,7 @@ def display_page(n_home, n_leads, n_atendentes, n_tabelas):
     if button_id == "home-button":
          return html.Div([
     html.Div([
-        html.H2("🏠 Bem-vindo ao Dashboard LCBank", style={"color": "#2C3E50", "marginBottom": "10px"}),
+        html.H2("🏠 Bem-vindo ao Dashboard LCbank", style={"color": "#2C3E50", "marginBottom": "10px"}),
         html.P("Use o menu à esquerda para navegar entre as análises de leads, atendentes e tabelas específicas.",
                style={"fontSize": "16px", "color": "#555"})
     ], style={
@@ -837,7 +837,7 @@ def update_leads_content(start_date, end_date, selected_pipeline, apply_filter):
         dff_extra = df_merge.copy()
 
 
-    desqualificados = dff_extra[dff_extra['pipeline_name'] == 'Desqualificação']
+    desqualificados = dff_extra[dff_extra['stage_name'] == 'DESQUALIFICADOS']
     motivos = desqualificados['motivos_nao_aprovacao'].value_counts()
 
     if len(motivos) > 15:
