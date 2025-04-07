@@ -1,173 +1,173 @@
-# # %% [markdown]
-# # # Listar negociações
+# %% [markdown]
+# # Listar negociações
 
-# # %%
+# %%
 import requests
 import pandas as pd
 import time
 from datetime import datetime, timedelta
-df_merge = pd.read_excel('dados.xlsx')
-# # Configurações iniciais
-# token = "67c0c74e0fca36001419b7f4"
-# base_url = "https://crm.rdstation.com/api/v1/deals"
-# limit = 200  # Máximo por requisição
-# rate_limit_pause = 0.1  # pausa de 0.1s para ficar abaixo do limite de 120 req/s
 
-# #primeiro lead de todos data:  2023-06-06T16:13:34.988-03:00
+# Configurações iniciais
+token = "67c0c74e0fca36001419b7f4"
+base_url = "https://crm.rdstation.com/api/v1/deals"
+limit = 200  # Máximo por requisição
+rate_limit_pause = 0.1  # pausa de 0.1s para ficar abaixo do limite de 120 req/s
 
-# # Defina o intervalo total que você deseja consultar
-# start_date_global = datetime(2023, 6, 6)
-# end_date_global = datetime(2025, 3, 24)
+#primeiro lead de todos data:  2023-06-06T16:13:34.988-03:00
 
-# all_deals = []
+# Defina o intervalo total que você deseja consultar
+start_date_global = datetime(2023, 6, 6)
+end_date_global = datetime.today()
 
-# # Dividindo o período por intervalos mensais (pode ajustar conforme a necessidade)
-# current_start = start_date_global
-# while current_start < end_date_global:
-#     current_end = current_start + timedelta(days=30)
-#     # Garante que current_end não ultrapasse o final do período
-#     if current_end > end_date_global:
-#         current_end = end_date_global
+all_deals = []
 
-#     # Converte datas para o formato ISO esperado pela API
-#     start_date_str = current_start.strftime("%Y-%m-%dT%H:%M:%S")
-#     end_date_str = current_end.strftime("%Y-%m-%dT%H:%M:%S")
+# Dividindo o período por intervalos mensais (pode ajustar conforme a necessidade)
+current_start = start_date_global
+while current_start < end_date_global:
+    current_end = current_start + timedelta(days=30)
+    # Garante que current_end não ultrapasse o final do período
+    if current_end > end_date_global:
+        current_end = end_date_global
 
-#     print(f"Consultando de {start_date_str} até {end_date_str}")
+    # Converte datas para o formato ISO esperado pela API
+    start_date_str = current_start.strftime("%Y-%m-%dT%H:%M:%S")
+    end_date_str = current_end.strftime("%Y-%m-%dT%H:%M:%S")
 
-#     page = 1
-#     while True:
-#         params = {
-#             "token": token,
-#             "limit": limit,
-#             "page": page,
-#             "start_date": start_date_str,
-#             "end_date": end_date_str,
-#             "created_at_period": "True"
-#         }
+    print(f"Consultando de {start_date_str} até {end_date_str}")
 
-#         response = requests.get(base_url, params=params)
-#         if response.status_code != 200:
-#             print(f"Erro na requisição: {response.status_code}")
-#             break
+    page = 1
+    while True:
+        params = {
+            "token": token,
+            "limit": limit,
+            "page": page,
+            "start_date": start_date_str,
+            "end_date": end_date_str,
+            "created_at_period": "True"
+        }
 
-#         data = response.json()
-#         deals = data.get("deals", [])
+        response = requests.get(base_url, params=params)
+        if response.status_code != 200:
+            print(f"Erro na requisição: {response.status_code}")
+            break
 
-#         if not deals:
-#             break  # Sem dados para este intervalo
+        data = response.json()
+        deals = data.get("deals", [])
 
-#         all_deals.extend(deals)
-#         print(f"  Página {page} retornou {len(deals)} deals")
+        if not deals:
+            break  # Sem dados para este intervalo
 
-#         if len(deals) < limit:
-#             break  # Última página atingida
+        all_deals.extend(deals)
+        print(f"  Página {page} retornou {len(deals)} deals")
 
-#         page += 1
-#         time.sleep(rate_limit_pause)
+        if not data.get("has_more", False):
+            break  # Não há mais páginas para este intervalo
 
-#     # Avança para o próximo período
-#     current_start = current_end + timedelta(seconds=1)
+        page += 1
+        time.sleep(rate_limit_pause)
 
-# # 🔹 Criar um DataFrame do pandas com os dados coletados
-# df = pd.DataFrame(all_deals)
+    # Avança para o próximo período
+    current_start = current_end
 
-# # 🔹 Função para extrair dados aninhados
-# def extract_nested_value(data, key):
-#     """Pega um valor de um dicionário, se existir"""
-#     return data.get(key) if isinstance(data, dict) else None
+# 🔹 Criar um DataFrame do pandas com os dados coletados
+df = pd.DataFrame(all_deals)
 
-# # 🔹 Criar colunas separadas para informações aninhadas
-# df["user_name"] = df["user"].apply(lambda x: extract_nested_value(x, "name"))
-# df["user_email"] = df["user"].apply(lambda x: extract_nested_value(x, "email"))
+# 🔹 Função para extrair dados aninhados
+def extract_nested_value(data, key):
+    """Pega um valor de um dicionário, se existir"""
+    return data.get(key) if isinstance(data, dict) else None
 
-# # 🔹 Extrair o nome e o ID do estágio diretamente do campo deal_stage
-# df["deal_stage_name"] = df["deal_stage"].apply(lambda x: x.get("name") if isinstance(x, dict) else None)
-# df["stage_id"] = df["deal_stage"].apply(lambda x: x.get("id") if isinstance(x, dict) else None)
+# 🔹 Criar colunas separadas para informações aninhadas
+df["user_name"] = df["user"].apply(lambda x: extract_nested_value(x, "name"))
+df["user_email"] = df["user"].apply(lambda x: extract_nested_value(x, "email"))
 
-# df["deal_source"] = df["deal_source"].apply(lambda x: extract_nested_value(x, "name"))
-# df["campaign_name"] = df["campaign"].apply(lambda x: extract_nested_value(x, "name"))
+# 🔹 Extrair o nome e o ID do estágio diretamente do campo deal_stage
+df["deal_stage_name"] = df["deal_stage"].apply(lambda x: x.get("name") if isinstance(x, dict) else None)
+df["stage_id"] = df["deal_stage"].apply(lambda x: x.get("id") if isinstance(x, dict) else None)
 
-# # 🔹 Extrair informações dos contatos
-# df["contact_name"] = df["contacts"].apply(lambda x: x[0]["name"] if isinstance(x, list) and x else None)
-# df["contact_email"] = df["contacts"].apply(lambda x: x[0]["emails"][0]["email"] if isinstance(x, list) and x and "emails" in x[0] and x[0]["emails"] else None)
-# df["contact_phone"] = df["contacts"].apply(lambda x: x[0]["phones"][0]["phone"] if isinstance(x, list) and x and "phones" in x[0] and x[0]["phones"] else None)
+df["deal_source"] = df["deal_source"].apply(lambda x: extract_nested_value(x, "name"))
+df["campaign_name"] = df["campaign"].apply(lambda x: extract_nested_value(x, "name"))
 
-# # 🔹 Extrair informações dos campos personalizados
-# def extract_custom_field(custom_fields, label):
-#     """Encontra o valor de um campo personalizado pelo nome"""
-#     if isinstance(custom_fields, list):
-#         for field in custom_fields:
-#             if "custom_field" in field and field["custom_field"]["label"] == label:
-#                 return field["value"]
-#     return None
+# 🔹 Extrair informações dos contatos
+df["contact_name"] = df["contacts"].apply(lambda x: x[0]["name"] if isinstance(x, list) and x else None)
+df["contact_email"] = df["contacts"].apply(lambda x: x[0]["emails"][0]["email"] if isinstance(x, list) and x and "emails" in x[0] and x[0]["emails"] else None)
+df["contact_phone"] = df["contacts"].apply(lambda x: x[0]["phones"][0]["phone"] if isinstance(x, list) and x and "phones" in x[0] and x[0]["phones"] else None)
 
-# df["lead_origin"] = df["deal_custom_fields"].apply(lambda x: extract_custom_field(x, "Página de Origem do LEAD"))
-# df["contact_whatsapp"] = df["deal_custom_fields"].apply(lambda x: extract_custom_field(x, "Whatsapp ou Telefone"))
+# 🔹 Extrair informações dos campos personalizados
+def extract_custom_field(custom_fields, label):
+    """Encontra o valor de um campo personalizado pelo nome"""
+    if isinstance(custom_fields, list):
+        for field in custom_fields:
+            if "custom_field" in field and field["custom_field"]["label"] == label:
+                return field["value"]
+    return None
 
-# # 🔸 Novas colunas solicitadas
-# df["motivos_nao_aprovacao"] = df["deal_custom_fields"].apply(lambda x: extract_custom_field(x, "MOTIVOS NÃO APROVAÇÃO"))
-# df["estado"] = df["deal_custom_fields"].apply(lambda x: extract_custom_field(x, "ESTADO"))
+df["lead_origin"] = df["deal_custom_fields"].apply(lambda x: extract_custom_field(x, "Página de Origem do LEAD"))
+df["contact_whatsapp"] = df["deal_custom_fields"].apply(lambda x: extract_custom_field(x, "Whatsapp ou Telefone"))
 
-# # 🔹 Selecionar colunas úteis atualizadas
-# df = df[[
-#     "id", "name", "amount_total", "created_at", "updated_at",
-#     "win", "closed_at", "user_name", "user_email", "deal_stage_name",
-#     "stage_id", "deal_source", "campaign_name", "contact_name", "contact_email",
-#     "contact_phone", "contact_whatsapp", "lead_origin",
-#     "motivos_nao_aprovacao", "estado"
-# ]]
+# 🔸 Novas colunas solicitadas
+df["motivos_nao_aprovacao"] = df["deal_custom_fields"].apply(lambda x: extract_custom_field(x, "MOTIVOS NÃO APROVAÇÃO"))
+df["estado"] = df["deal_custom_fields"].apply(lambda x: extract_custom_field(x, "ESTADO"))
 
-# # 🔹 Exibir as primeiras linhas do DataFrame atualizado
+# 🔹 Selecionar colunas úteis atualizadas
+df = df[[
+    "id", "name", "amount_total", "created_at", "updated_at",
+    "win", "closed_at", "user_name", "user_email", "deal_stage_name",
+    "stage_id", "deal_source", "campaign_name", "contact_name", "contact_email",
+    "contact_phone", "contact_whatsapp", "lead_origin",
+    "motivos_nao_aprovacao", "estado"
+]]
 
-# # %% [markdown]
-# # # Listar funis e suas etapas
+# 🔹 Exibir as primeiras linhas do DataFrame atualizado
+
+# %% [markdown]
+# # Listar funis e suas etapas
 
 # %%
-# import requests
-# import pandas as pd
+import requests
+import pandas as pd
 
-# # 🔹 URL da API para buscar os funis e etapas
-# url = "https://crm.rdstation.com/api/v1/deal_pipelines?token=67c0c74e0fca36001419b7f4"
-# headers = {"accept": "application/json"}
+# 🔹 URL da API para buscar os funis e etapas
+url = "https://crm.rdstation.com/api/v1/deal_pipelines?token=67c0c74e0fca36001419b7f4"
+headers = {"accept": "application/json"}
 
-# # 🔹 Faz a requisição à API
-# response = requests.get(url, headers=headers)
+# 🔹 Faz a requisição à API
+response = requests.get(url, headers=headers)
 
-# if response.status_code == 200:
-#     deal_pipelines = response.json()
+if response.status_code == 200:
+    deal_pipelines = response.json()
 
-#     # 🔹 Criar lista para armazenar os dados formatados
-#     pipeline_data = []
+    # 🔹 Criar lista para armazenar os dados formatados
+    pipeline_data = []
 
-#     for pipeline in deal_pipelines:
-#         pipeline_id = pipeline["id"]
-#         pipeline_name = pipeline["name"]
+    for pipeline in deal_pipelines:
+        pipeline_id = pipeline["id"]
+        pipeline_name = pipeline["name"]
 
-#         for stage in pipeline.get("deal_stages", []):
-#             pipeline_data.append({
-#                 "pipeline_id": pipeline_id,
-#                 "pipeline_name": pipeline_name,
-#                 "stage_id": stage["id"],
-#                 "stage_name": stage["name"],
-#                 "stage_nickname": stage["nickname"],
-#                 "stage_order": stage["order"],
-#             })
+        for stage in pipeline.get("deal_stages", []):
+            pipeline_data.append({
+                "pipeline_id": pipeline_id,
+                "pipeline_name": pipeline_name,
+                "stage_id": stage["id"],
+                "stage_name": stage["name"],
+                "stage_nickname": stage["nickname"],
+                "stage_order": stage["order"],
+            })
 
-#     # 🔹 Criar DataFrame
-#     df_pipelines = pd.DataFrame(pipeline_data)
+    # 🔹 Criar DataFrame
+    df_pipelines = pd.DataFrame(pipeline_data)
 
-# # %% [markdown]
-# # # Merge para o df final
+# %% [markdown]
+# # Merge para o df final
 
-# # %%
-# # Fazer o merge das duas bases de dados
-# df_final = pd.merge(
-#     df,  # DataFrame das negociações
-#     df_pipelines,  # DataFrame dos funis e estágios
-#     on="stage_id",  # Chave de junção
-#     how="left"  # Mantém todas as negociações, mesmo que não tenham um estágio correspondente
-# )
+# %%
+# Fazer o merge das duas bases de dados
+df_final = pd.merge(
+    df,  # DataFrame das negociações
+    df_pipelines,  # DataFrame dos funis e estágios
+    on="stage_id",  # Chave de junção
+    how="left"  # Mantém todas as negociações, mesmo que não tenham um estágio correspondente
+)
 
 # Exibir as primeiras linhas do DataFrame final
 
@@ -273,7 +273,7 @@ df_merge = df_final
 
 # %%
 # Remover tudo após '|' na coluna deal_source
-# df_merge['deal_source'] = df_merge['deal_source'].str.split('|').str[0].str.strip()
+df_merge['deal_source'] = df_merge['deal_source'].str.split('|').str[0].str.strip()
 
 # %%
 # Selecionar colunas relevantes para análise (sem remover as outras)
@@ -311,24 +311,24 @@ estagios_por_pipeline = df_merge.groupby('pipeline_name')['stage_name'].unique()
     #estagios = ', '.join(row['stage_name'])
     #print(f'Pipeline: {pipeline}\nEstágios: {estagios}\n{"-"*50}')
 
-# # %%
-# df_merge = df_merge.sort_values(by='created_at', ascending=False)
+# %%
+df_merge = df_merge.sort_values(by='created_at', ascending=False)
 
-# # Converter a coluna para datetime
-# df_merge['created_at'] = pd.to_datetime(df_merge['created_at'])
+# Converter a coluna para datetime
+df_merge['created_at'] = pd.to_datetime(df_merge['created_at'])
 
-# # Criar a coluna de data no formato dd-mm-yyyy
-# df_merge['data criação'] = df_merge['created_at'].dt.strftime('%d-%m-%Y')
+# Criar a coluna de data no formato dd-mm-yyyy
+df_merge['data criação'] = df_merge['created_at'].dt.strftime('%d-%m-%Y')
 
-# # Criar a coluna de hora no formato hh:mm
-# df_merge['hora criação'] = df_merge['created_at'].dt.strftime('%H:%M')
+# Criar a coluna de hora no formato hh:mm
+df_merge['hora criação'] = df_merge['created_at'].dt.strftime('%H:%M')
 
-# df_merge = df_merge.drop(columns=['created_at'])
+df_merge = df_merge.drop(columns=['created_at'])
 
 # Padronizar a saída da coluna motivos_nao_aprovacao
-# df_merge["motivos_nao_aprovacao"] = df_merge["motivos_nao_aprovacao"].replace(
-#     "ENVIADOS PARA 2° ANÁLISE", "ENVIADOS PARA 2º ANÁLISE"
-# )
+df_merge["motivos_nao_aprovacao"] = df_merge["motivos_nao_aprovacao"].replace(
+    "ENVIADOS PARA 2° ANÁLISE", "ENVIADOS PARA 2º ANÁLISE"
+)
 
 # %%
 # # Contar a frequência de cada valor único na coluna stage_name
@@ -338,9 +338,9 @@ estagios_por_pipeline = df_merge.groupby('pipeline_name')['stage_name'].unique()
 
 # %%
 # Padronizar a saída da coluna motivos_nao_aprovacao
-# df_merge["motivos_nao_aprovacao"] = df_merge["motivos_nao_aprovacao"].replace(
-#     "ENVIADOS PARA 2° ANÁLISE", "ENVIADOS PARA 2º ANÁLISE"
-# )
+df_merge["motivos_nao_aprovacao"] = df_merge["motivos_nao_aprovacao"].replace(
+    "ENVIADOS PARA 2° ANÁLISE", "ENVIADOS PARA 2º ANÁLISE"
+)
 
 # %%
 import pandas as pd
