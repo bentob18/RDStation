@@ -1,123 +1,123 @@
 # %% [markdown]
 # # Listar negociações
 
-# %%
-import requests
-import pandas as pd
-import time
-from datetime import datetime, timedelta
+# # %%
+# import requests
+# import pandas as pd
+# import time
+# from datetime import datetime, timedelta
 
-# Configurações iniciais
-token = "67c0c74e0fca36001419b7f4"
-base_url = "https://crm.rdstation.com/api/v1/deals"
-limit = 200  # Máximo por requisição
-rate_limit_pause = 0.1  # pausa de 0.1s para ficar abaixo do limite de 120 req/s
+# # Configurações iniciais
+# token = "67c0c74e0fca36001419b7f4"
+# base_url = "https://crm.rdstation.com/api/v1/deals"
+# limit = 200  # Máximo por requisição
+# rate_limit_pause = 0.1  # pausa de 0.1s para ficar abaixo do limite de 120 req/s
 
-#primeiro lead de todos data:  2023-06-06T16:13:34.988-03:00
+# #primeiro lead de todos data:  2023-06-06T16:13:34.988-03:00
 
-# Defina o intervalo total que você deseja consultar
-start_date_global = datetime(2023, 6, 6)
-end_date_global = datetime.today()
+# # Defina o intervalo total que você deseja consultar
+# start_date_global = datetime(2023, 6, 6)
+# end_date_global = datetime.today()
 
-all_deals = []
+# all_deals = []
 
-# Dividindo o período por intervalos mensais (pode ajustar conforme a necessidade)
-current_start = start_date_global
-while current_start < end_date_global:
-    current_end = current_start + timedelta(days=30)
-    # Garante que current_end não ultrapasse o final do período
-    if current_end > end_date_global:
-        current_end = end_date_global
+# # Dividindo o período por intervalos mensais (pode ajustar conforme a necessidade)
+# current_start = start_date_global
+# while current_start < end_date_global:
+#     current_end = current_start + timedelta(days=30)
+#     # Garante que current_end não ultrapasse o final do período
+#     if current_end > end_date_global:
+#         current_end = end_date_global
 
-    # Converte datas para o formato ISO esperado pela API
-    start_date_str = current_start.strftime("%Y-%m-%dT%H:%M:%S")
-    end_date_str = current_end.strftime("%Y-%m-%dT%H:%M:%S")
+#     # Converte datas para o formato ISO esperado pela API
+#     start_date_str = current_start.strftime("%Y-%m-%dT%H:%M:%S")
+#     end_date_str = current_end.strftime("%Y-%m-%dT%H:%M:%S")
 
-    print(f"Consultando de {start_date_str} até {end_date_str}")
+#     print(f"Consultando de {start_date_str} até {end_date_str}")
 
-    page = 1
-    while True:
-        params = {
-            "token": token,
-            "limit": limit,
-            "page": page,
-            "start_date": start_date_str,
-            "end_date": end_date_str,
-            "created_at_period": "True"
-        }
+#     page = 1
+#     while True:
+#         params = {
+#             "token": token,
+#             "limit": limit,
+#             "page": page,
+#             "start_date": start_date_str,
+#             "end_date": end_date_str,
+#             "created_at_period": "True"
+#         }
 
-        response = requests.get(base_url, params=params)
-        if response.status_code != 200:
-            print(f"Erro na requisição: {response.status_code}")
-            break
+#         response = requests.get(base_url, params=params)
+#         if response.status_code != 200:
+#             print(f"Erro na requisição: {response.status_code}")
+#             break
 
-        data = response.json()
-        deals = data.get("deals", [])
+#         data = response.json()
+#         deals = data.get("deals", [])
 
-        if not deals:
-            break  # Sem dados para este intervalo
+#         if not deals:
+#             break  # Sem dados para este intervalo
 
-        all_deals.extend(deals)
-        print(f"  Página {page} retornou {len(deals)} deals")
+#         all_deals.extend(deals)
+#         print(f"  Página {page} retornou {len(deals)} deals")
 
-        if not data.get("has_more", False):
-            break  # Não há mais páginas para este intervalo
+#         if not data.get("has_more", False):
+#             break  # Não há mais páginas para este intervalo
 
-        page += 1
-        time.sleep(rate_limit_pause)
+#         page += 1
+#         time.sleep(rate_limit_pause)
 
-    # Avança para o próximo período
-    current_start = current_end
+#     # Avança para o próximo período
+#     current_start = current_end
 
-# 🔹 Criar um DataFrame do pandas com os dados coletados
-df = pd.DataFrame(all_deals)
+# # 🔹 Criar um DataFrame do pandas com os dados coletados
+# df = pd.DataFrame(all_deals)
 
-# 🔹 Função para extrair dados aninhados
-def extract_nested_value(data, key):
-    """Pega um valor de um dicionário, se existir"""
-    return data.get(key) if isinstance(data, dict) else None
+# # 🔹 Função para extrair dados aninhados
+# def extract_nested_value(data, key):
+#     """Pega um valor de um dicionário, se existir"""
+#     return data.get(key) if isinstance(data, dict) else None
 
-# 🔹 Criar colunas separadas para informações aninhadas
-df["user_name"] = df["user"].apply(lambda x: extract_nested_value(x, "name"))
-df["user_email"] = df["user"].apply(lambda x: extract_nested_value(x, "email"))
+# # 🔹 Criar colunas separadas para informações aninhadas
+# df["user_name"] = df["user"].apply(lambda x: extract_nested_value(x, "name"))
+# df["user_email"] = df["user"].apply(lambda x: extract_nested_value(x, "email"))
 
-# 🔹 Extrair o nome e o ID do estágio diretamente do campo deal_stage
-df["deal_stage_name"] = df["deal_stage"].apply(lambda x: x.get("name") if isinstance(x, dict) else None)
-df["stage_id"] = df["deal_stage"].apply(lambda x: x.get("id") if isinstance(x, dict) else None)
+# # 🔹 Extrair o nome e o ID do estágio diretamente do campo deal_stage
+# df["deal_stage_name"] = df["deal_stage"].apply(lambda x: x.get("name") if isinstance(x, dict) else None)
+# df["stage_id"] = df["deal_stage"].apply(lambda x: x.get("id") if isinstance(x, dict) else None)
 
-df["deal_source"] = df["deal_source"].apply(lambda x: extract_nested_value(x, "name"))
-df["campaign_name"] = df["campaign"].apply(lambda x: extract_nested_value(x, "name"))
+# df["deal_source"] = df["deal_source"].apply(lambda x: extract_nested_value(x, "name"))
+# df["campaign_name"] = df["campaign"].apply(lambda x: extract_nested_value(x, "name"))
 
-# 🔹 Extrair informações dos contatos
-df["contact_name"] = df["contacts"].apply(lambda x: x[0]["name"] if isinstance(x, list) and x else None)
-df["contact_email"] = df["contacts"].apply(lambda x: x[0]["emails"][0]["email"] if isinstance(x, list) and x and "emails" in x[0] and x[0]["emails"] else None)
-df["contact_phone"] = df["contacts"].apply(lambda x: x[0]["phones"][0]["phone"] if isinstance(x, list) and x and "phones" in x[0] and x[0]["phones"] else None)
+# # 🔹 Extrair informações dos contatos
+# df["contact_name"] = df["contacts"].apply(lambda x: x[0]["name"] if isinstance(x, list) and x else None)
+# df["contact_email"] = df["contacts"].apply(lambda x: x[0]["emails"][0]["email"] if isinstance(x, list) and x and "emails" in x[0] and x[0]["emails"] else None)
+# df["contact_phone"] = df["contacts"].apply(lambda x: x[0]["phones"][0]["phone"] if isinstance(x, list) and x and "phones" in x[0] and x[0]["phones"] else None)
 
-# 🔹 Extrair informações dos campos personalizados
-def extract_custom_field(custom_fields, label):
-    """Encontra o valor de um campo personalizado pelo nome"""
-    if isinstance(custom_fields, list):
-        for field in custom_fields:
-            if "custom_field" in field and field["custom_field"]["label"] == label:
-                return field["value"]
-    return None
+# # 🔹 Extrair informações dos campos personalizados
+# def extract_custom_field(custom_fields, label):
+#     """Encontra o valor de um campo personalizado pelo nome"""
+#     if isinstance(custom_fields, list):
+#         for field in custom_fields:
+#             if "custom_field" in field and field["custom_field"]["label"] == label:
+#                 return field["value"]
+#     return None
 
-df["lead_origin"] = df["deal_custom_fields"].apply(lambda x: extract_custom_field(x, "Página de Origem do LEAD"))
-df["contact_whatsapp"] = df["deal_custom_fields"].apply(lambda x: extract_custom_field(x, "Whatsapp ou Telefone"))
+# df["lead_origin"] = df["deal_custom_fields"].apply(lambda x: extract_custom_field(x, "Página de Origem do LEAD"))
+# df["contact_whatsapp"] = df["deal_custom_fields"].apply(lambda x: extract_custom_field(x, "Whatsapp ou Telefone"))
 
-# 🔸 Novas colunas solicitadas
-df["motivos_nao_aprovacao"] = df["deal_custom_fields"].apply(lambda x: extract_custom_field(x, "MOTIVOS NÃO APROVAÇÃO"))
-df["estado"] = df["deal_custom_fields"].apply(lambda x: extract_custom_field(x, "ESTADO"))
+# # 🔸 Novas colunas solicitadas
+# df["motivos_nao_aprovacao"] = df["deal_custom_fields"].apply(lambda x: extract_custom_field(x, "MOTIVOS NÃO APROVAÇÃO"))
+# df["estado"] = df["deal_custom_fields"].apply(lambda x: extract_custom_field(x, "ESTADO"))
 
-# 🔹 Selecionar colunas úteis atualizadas
-df = df[[
-    "id", "name", "amount_total", "created_at", "updated_at",
-    "win", "closed_at", "user_name", "user_email", "deal_stage_name",
-    "stage_id", "deal_source", "campaign_name", "contact_name", "contact_email",
-    "contact_phone", "contact_whatsapp", "lead_origin",
-    "motivos_nao_aprovacao", "estado"
-]]
-
+# # 🔹 Selecionar colunas úteis atualizadas
+# df = df[[
+#     "id", "name", "amount_total", "created_at", "updated_at",
+#     "win", "closed_at", "user_name", "user_email", "deal_stage_name",
+#     "stage_id", "deal_source", "campaign_name", "contact_name", "contact_email",
+#     "contact_phone", "contact_whatsapp", "lead_origin",
+#     "motivos_nao_aprovacao", "estado"
+# ]]
+df = pd.read_excel('df.xlsx')
 # 🔹 Exibir as primeiras linhas do DataFrame atualizado
 
 # %% [markdown]
