@@ -6,7 +6,7 @@ import requests
 import pandas as pd
 import time
 from datetime import datetime, timedelta
-
+import os
 # # Configurações iniciais
 # token = "67c0c74e0fca36001419b7f4"
 # base_url = "https://crm.rdstation.com/api/v1/deals"
@@ -535,6 +535,9 @@ late_night_counts = late_night_filtered.groupby('data_dia_seguinte')['id'].count
 
 # %%
 import dash
+from flask import Flask, session, redirect, url_for, request
+from dash import html
+import dash_bootstrap_components as dbc
 from dash import dcc, html, dash_table
 import dash_bootstrap_components as dbc
 import pandas as pd
@@ -556,8 +559,48 @@ pipeline_options = [{'label': p, 'value': p} for p in sorted(df_merge['pipeline_
 pipeline_options.insert(0, {'label': 'Nenhum', 'value': 'Nenhum'})
 
 # =================== APP =====================
-app = dash.Dash(__name__, external_stylesheets=[dbc.themes.FLATLY])
+server = Flask(__name__)
+server.secret_key = os.urandom(24).hex()
+
+
+app = dash.Dash(__name__, server=server, suppress_callback_exceptions=True, external_stylesheets=[dbc.themes.FLATLY])
 app.config.suppress_callback_exceptions = True
+
+USERS = {
+    "admin": "LCbank",
+    "gustavo": "LCbank2718"
+}
+
+@server.route('/', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        if username in USERS and USERS[username] == password:
+            session['logged_in'] = True
+            return redirect('/home')
+        return '''
+            <p style="color:red;">Usuário ou senha inválidos</p>
+            ''' + login_form()
+
+    if session.get('logged_in'):
+        return redirect('/home')
+    return login_form()
+
+def login_form():
+    return '''
+        <h2>Login LCbank</h2>
+        <form method="post">
+            Usuário: <input type="text" name="username"><br><br>
+            Senha: <input type="password" name="password"><br><br>
+            <input type="submit" value="Entrar">
+        </form>
+    '''
+
+@server.route('/logout')
+def logout():
+    session.pop('logged_in', None)
+    return redirect('/')
 
 # =================== LAYOUT =====================
 sidebar = html.Div([
@@ -612,6 +655,8 @@ app.layout = html.Div([dcc.Location(id='url'), sidebar, content])
 )
 def display_page(n_home, n_leads, n_atendentes, n_tabelas):
     ctx = dash.callback_context
+    if not session.get('logged_in'):
+    return dcc.Location(href='/', id='redirect')
     if not ctx.triggered:
         return html.Div([
             html.Div([
