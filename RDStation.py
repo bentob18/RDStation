@@ -542,28 +542,67 @@ from flask import Flask, session, redirect, url_for, request
 from dash import html
 import dash_bootstrap_components as dbc
 from dash import dcc, html, dash_table
-import dash_bootstrap_components as dbc
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from dash.dependencies import Input, Output
 from datetime import datetime, timedelta
+from dash import html, dcc, Input, Output, State, ctx
+from flask import Flask
+import os
 
-# Authentication setup
-auth = HTTPBasicAuth()
-
-# Define a dictionary of users and passwords
-users = {
-    "Admin": "LCbank2718"  # You can replace these with your actual username and password
+# Usuários válidos
+USERS = {
+    "admin": "LCbank2718",
 }
 
-# Function to authenticate users
-@auth.get_password
-def get_pw(username):
-    if username in users:
-        return users.get(username)
-    return None
-    
+# Flask server
+server = Flask(__name__)
+server.secret_key = os.urandom(24).hex()
+
+# Dash app
+app = dash.Dash(__name__, server=server, external_stylesheets=[dbc.themes.FLATLY], suppress_callback_exceptions=True)
+
+# Layout de login
+login_layout = html.Div([
+    html.H2("Login LCbank"),
+    dcc.Input(id="login-username", type="text", placeholder="Usuário", style={"margin": "10px"}),
+    dcc.Input(id="login-password", type="password", placeholder="Senha", style={"margin": "10px"}),
+    html.Button("Entrar", id="login-button", n_clicks=0),
+    html.Div(id="login-message", style={"color": "red", "marginTop": "10px"})
+], style={"textAlign": "center", "marginTop": "100px"})
+
+# Armazenar estado de login
+app.layout = html.Div([
+    dcc.Location(id="url"),
+    dcc.Store(id="session-store", storage_type="session"),  # login session
+    html.Div(id="page-content")
+])
+
+# Callback para autenticar login
+@app.callback(
+    Output("session-store", "data"),
+    Output("login-message", "children"),
+    Input("login-button", "n_clicks"),
+    State("login-username", "value"),
+    State("login-password", "value"),
+    prevent_initial_call=True
+)
+def login_user(n_clicks, username, password):
+    if username in USERS and USERS[username] == password:
+        return {"logged_in": True}, ""
+    return dash.no_update, "Usuário ou senha inválidos."
+
+# Callback para alternar entre login e dashboard
+@app.callback(
+    Output("page-content", "children"),
+    Input("session-store", "data")
+)
+def render_page(session_data):
+    if session_data and session_data.get("logged_in"):
+        return dashboard_layout  # substitua por seu layout completo
+    return login_layout
+
 # =================== DADOS =====================
 df_merge['data criação'] = pd.to_datetime(df_merge['data criação'], dayfirst=True)
 contagem['data criação'] = pd.to_datetime(contagem['data criação'], dayfirst=True)
@@ -575,19 +614,6 @@ start_default = end_default - timedelta(days=30)
 
 pipeline_options = [{'label': p, 'value': p} for p in sorted(df_merge['pipeline_name'].unique())]
 pipeline_options.insert(0, {'label': 'Nenhum', 'value': 'Nenhum'})
-
-# =================== APP =====================
-server = Flask(__name__)
-
-
-app = dash.Dash(__name__, server=server, suppress_callback_exceptions=True, external_stylesheets=[dbc.themes.FLATLY])
-app.config.suppress_callback_exceptions = True
-
-# Middleware to apply authentication to Dash routes
-@server.before_request
-@auth.login_required
-def authenticate():
-    pass  # Authentication is handled by HTTPBasicAuth
 
 # =================== LAYOUT =====================
 sidebar = html.Div([
