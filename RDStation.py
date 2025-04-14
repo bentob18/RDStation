@@ -656,7 +656,8 @@ app.layout = html.Div([dcc.Location(id='url'), sidebar, content])
 def display_page(n_home, n_leads, n_atendentes, n_tabelas):
     ctx = dash.callback_context
     if not session.get('logged_in'):
-    return dcc.Location(href='/', id='redirect')
+        return dcc.Location(href='/', id='redirect')
+        
     if not ctx.triggered:
         return html.Div([
             html.Div([
