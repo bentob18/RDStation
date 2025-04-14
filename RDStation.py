@@ -7,6 +7,9 @@ import pandas as pd
 import time
 from datetime import datetime, timedelta
 import os
+from flask_httpauth import HTTPBasicAuth
+from flask import Flask
+
 # # Configurações iniciais
 # token = "67c0c74e0fca36001419b7f4"
 # base_url = "https://crm.rdstation.com/api/v1/deals"
