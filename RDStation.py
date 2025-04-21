@@ -535,6 +535,85 @@ late_night_counts = late_night_filtered.groupby('data_dia_seguinte')['id'].count
 # Exibir o gráfico
 #fig.show()
 
+import re
+
+# ==================== 1. REMOVER OUTLIERS DOS GRÁFICOS ====================
+# Remover valores acima de 6 milhões da análise
+df_merge = df_merge[df_merge['amount_total'] <= 1_200_000]
+
+# ==================== 2. MAPEAR DDDs PARA ESTADOS ====================
+ddd_to_estado = {
+    # Norte
+    68: "AC", 96: "AP", 92: "AM", 97: "AM", 91: "PA", 93: "PA", 94: "PA", 69: "RO", 95: "RR", 63: "TO",
+    # Nordeste
+    82: "AL", 71: "BA", 73: "BA", 74: "BA", 75: "BA", 77: "BA", 85: "CE", 88: "CE",
+    98: "MA", 99: "MA", 83: "PB", 81: "PE", 87: "PE", 86: "PI", 89: "PI", 84: "RN", 79: "SE",
+    # Centro-Oeste
+    61: "DF", 62: "GO", 64: "GO", 65: "MT", 66: "MT", 67: "MS",
+    # Sudeste
+    27: "ES", 28: "ES", 31: "MG", 32: "MG", 33: "MG", 34: "MG", 35: "MG", 37: "MG", 38: "MG",
+    21: "RJ", 22: "RJ", 24: "RJ", 11: "SP", 12: "SP", 13: "SP", 14: "SP", 15: "SP",
+    16: "SP", 17: "SP", 18: "SP", 19: "SP",
+    # Sul
+    41: "PR", 42: "PR", 43: "PR", 44: "PR", 45: "PR", 46: "PR",
+    51: "RS", 53: "RS", 54: "RS", 55: "RS", 47: "SC", 48: "SC", 49: "SC"
+}
+
+def extrair_ddd(numero):
+    # Extrai DDD de formatos como (31) 99822-1234 ou 5531999999999
+    if pd.isna(numero):
+        return None
+    numero = re.sub(r'\D', '', str(numero))  # remove tudo que não é número
+    if len(numero) >= 2 and len(numero) < 12:
+        return int(numero[:2])  # pega os dois primeiros (DDD padrão nacional)
+    elif len(numero) >= 12:
+        return int(numero[-11:-9])  # pega DDD no formato internacional tipo 552197...
+    return None
+
+# Extrair e mapear
+df_merge['ddd_extraido'] = df_merge['contact_whatsapp'].apply(extrair_ddd)
+df_merge['estado_padronizado'] = df_merge['ddd_extraido'].map(ddd_to_estado)
+
+#print(df_merge[['contact_whatsapp', 'ddd_extraido', 'estado_padronizado']].dropna().drop_duplicates().head(50))
+
+
+# =================== GRÁFICO 3 - MAPA COROPLÉTICO POR ESTADO ===================
+
+# GeoJSON dos estados do Brasil
+geojson_url = 'https://raw.githubusercontent.com/codeforamerica/click_that_hood/master/public/data/brazil-states.geojson'
+geojson_estados = requests.get(geojson_url).json()
+
+# Contagem de leads por estado
+estado_counts = df_merge['estado_padronizado'].value_counts().reset_index()
+estado_counts.columns = ['estado_padronizado', 'quantidade']
+
+# Conversão de sigla para nome completo (necessário para o GeoJSON)
+estado_nome_map = {
+    'AC': 'Acre', 'AL': 'Alagoas', 'AP': 'Amapá', 'AM': 'Amazonas',
+    'BA': 'Bahia', 'CE': 'Ceará', 'DF': 'Distrito Federal', 'ES': 'Espírito Santo',
+    'GO': 'Goiás', 'MA': 'Maranhão', 'MT': 'Mato Grosso', 'MS': 'Mato Grosso do Sul',
+    'MG': 'Minas Gerais', 'PA': 'Pará', 'PB': 'Paraíba', 'PR': 'Paraná',
+    'PE': 'Pernambuco', 'PI': 'Piauí', 'RJ': 'Rio de Janeiro', 'RN': 'Rio Grande do Norte',
+    'RS': 'Rio Grande do Sul', 'RO': 'Rondônia', 'RR': 'Roraima', 'SC': 'Santa Catarina',
+    'SP': 'São Paulo', 'SE': 'Sergipe', 'TO': 'Tocantins'
+}
+estado_counts['estado_nome'] = estado_counts['estado_padronizado'].map(estado_nome_map)
+
+# Mapa com Plotly
+fig_mapa = px.choropleth(
+    estado_counts,
+    geojson=geojson_estados,
+    locations='estado_nome',
+    featureidkey='properties.name',
+    color='quantidade',
+    color_continuous_scale='Viridis',
+    title='🗺️ Distribuição de Leads por Estado',
+    labels={'quantidade': 'Número de Leads'},
+    template='plotly_white'
+)
+#fig_mapa.update_geos(fitbounds="locations", visible=False)
+
+
 
 # %%
 import dash
@@ -642,9 +721,6 @@ app.layout = html.Div([dcc.Location(id='url'), sidebar, content])
 )
 def display_page(n_home, n_leads, n_atendentes, n_tabelas):
     ctx = dash.callback_context
-    # if not session.get('logged_in'):
-    #     return dcc.Location(href='/', id='redirect')
-        
     if not ctx.triggered:
         return html.Div([
             html.Div([
@@ -804,11 +880,12 @@ def display_page(n_home, n_leads, n_atendentes, n_tabelas):
      Input("apply-filter-extra-graphs", "value")]
 )
 def update_leads_content(start_date, end_date, selected_pipeline, apply_filter):
-    dff = df_merge[(df_merge['data criação'] >= pd.to_datetime(start_date)) & (df_merge['data criação'] <= pd.to_datetime(end_date))]
+    import requests
 
+    dff = df_merge[(df_merge['data criação'] >= pd.to_datetime(start_date)) & (df_merge['data criação'] <= pd.to_datetime(end_date))]
     dff_pipeline = dff if selected_pipeline == 'Nenhum' else dff[dff['pipeline_name'] == selected_pipeline]
 
-    # Gráfico 1
+    # Gráfico 1: Registros Diários
     registros_diarios = dff_pipeline.groupby(dff_pipeline['data criação'].dt.date)['id'].count().reset_index()
     fig = px.bar(
         registros_diarios,
@@ -818,23 +895,10 @@ def update_leads_content(start_date, end_date, selected_pipeline, apply_filter):
         title='📊 Registros Diários',
         color_discrete_sequence=['#007bff']
     )
-    fig.update_traces(
-        texttemplate='%{y}',
-        textposition='outside'
-    )
-    fig.update_layout(
-        yaxis_title="Quantidade",
-        xaxis_title="Data",
-        template="plotly_white",
-        bargap=0.2,
-        uniformtext_minsize=8,
-        uniformtext_mode='hide',
-        margin=dict(t=60),  # Aumenta o topo
-    )
+    fig.update_traces(texttemplate='%{y}', textposition='outside')
+    fig.update_layout(yaxis_title="Quantidade", xaxis_title="Data", template="plotly_white", bargap=0.2, margin=dict(t=60))
 
-
-
-    # Gráfico 2
+    # Gráfico 2: Leads após 18h
     dff['data_dia_seguinte'] = dff.apply(lambda row: (row['data criação'] + timedelta(days=1)).date() if row['hora criação'] >= 18 else row['data criação'].date(), axis=1)
     late = dff[(dff['hora criação'] >= 18) | (dff['hora criação'] < 7)]
     late_counts = late.groupby('data_dia_seguinte')['id'].count().reset_index()
@@ -846,90 +910,147 @@ def update_leads_content(start_date, end_date, selected_pipeline, apply_filter):
         title='🌙 Leads das 18h até 7h do Dia Seguinte',
         color_discrete_sequence=['#dc3545']
     )
-    fig_late.update_traces(
-        texttemplate='%{y}',
-        textposition='outside'
-    )
-    fig_late.update_layout(
-        yaxis_title="Quantidade",
-        xaxis_title="Data",
-        template="plotly_white",
-        bargap=0.2,
-        uniformtext_minsize=8,
-        uniformtext_mode='hide',
-        margin=dict(t=60),  # Aumenta o topo
-    )
+    fig_late.update_traces(texttemplate='%{y}', textposition='outside')
+    fig_late.update_layout(yaxis_title="Quantidade", xaxis_title="Data", template="plotly_white", bargap=0.2, margin=dict(t=60))
 
+    # Gráfico 3: Mapa de calor por estado
+    try:
+        geojson_url = 'https://raw.githubusercontent.com/codeforamerica/click_that_hood/master/public/data/brazil-states.geojson'
+        geojson_estados = requests.get(geojson_url).json()
 
-    # Gráfico 3
-    if 'filtro' in apply_filter:
-        # Filtrar apenas por data (ignorar pipeline)
-        dff_extra = dff.copy()
-    else:
-        # Mostrar todos os dados, sem filtro
-        dff_extra = df_merge.copy()
+        estado_counts = dff_pipeline['estado_padronizado'].value_counts().reset_index()
+        estado_counts.columns = ['estado_padronizado', 'quantidade']
 
+        estado_nome_map = {
+            'AC': 'Acre', 'AL': 'Alagoas', 'AP': 'Amapá', 'AM': 'Amazonas',
+            'BA': 'Bahia', 'CE': 'Ceará', 'DF': 'Distrito Federal', 'ES': 'Espírito Santo',
+            'GO': 'Goiás', 'MA': 'Maranhão', 'MT': 'Mato Grosso', 'MS': 'Mato Grosso do Sul',
+            'MG': 'Minas Gerais', 'PA': 'Pará', 'PB': 'Paraíba', 'PR': 'Paraná',
+            'PE': 'Pernambuco', 'PI': 'Piauí', 'RJ': 'Rio de Janeiro', 'RN': 'Rio Grande do Norte',
+            'RS': 'Rio Grande do Sul', 'RO': 'Rondônia', 'RR': 'Roraima', 'SC': 'Santa Catarina',
+            'SP': 'São Paulo', 'SE': 'Sergipe', 'TO': 'Tocantins'
+        }
+        estado_counts['estado_nome'] = estado_counts['estado_padronizado'].map(estado_nome_map)
 
+        fig_mapa = px.choropleth(
+            estado_counts,
+            geojson=geojson_estados,
+            locations='estado_nome',
+            featureidkey='properties.name',
+            color='quantidade',
+            color_continuous_scale='Viridis',
+            title='🗺️ Distribuição de Leads por Estado',
+            labels={'quantidade': 'Número de Leads'},
+            template='plotly_white'
+        )
+        fig_mapa.update_geos(fitbounds="locations", visible=False)
+        mapa_component = html.Div([dcc.Graph(figure=fig_mapa)], style={
+            "backgroundColor": "#ffffff",
+            "padding": "20px",
+            "marginBottom": "30px",
+            "borderRadius": "8px",
+            "boxShadow": "0 2px 6px rgba(0,0,0,0.05)"
+        })
+    except:
+        mapa_component = html.Div("Erro ao carregar mapa de calor por estado.", style={"color": "red", "padding": "20px"})
+
+    # Gráfico 4: Motivos de Desqualificação
+    dff_extra = dff.copy() if 'filtro' in apply_filter else df_merge.copy()
     desqualificados = dff_extra[dff_extra['stage_name'] == 'DESQUALIFICADOS']
     motivos = desqualificados['motivos_nao_aprovacao'].value_counts()
-
     if len(motivos) > 15:
         top = motivos.head(14)
         outros = pd.Series(motivos[14:].sum(), index=['Outros'])
         motivos_final = pd.concat([top, outros])
     else:
         motivos_final = motivos
-
     df_motivos = motivos_final.sort_values(ascending=False).reset_index()
     df_motivos.columns = ['Motivo', 'Quantidade']
-
     fig_motivos = px.bar(df_motivos[::-1], x='Quantidade', y='Motivo', orientation='h', title='Principais Motivos de Não Aprovação (Desqualificação)', text='Quantidade', color='Quantidade', color_continuous_scale='Blues')
-    fig_motivos.update_layout(template='plotly_white', height=700, coloraxis_showscale=False)
+    fig_motivos.update_layout(template='plotly_white', height=700, coloraxis_showscale=False, margin=dict(t=60, r=100))
     fig_motivos.update_traces(texttemplate='%{text}', textposition='auto')
-    fig_motivos.update_layout(margin=dict(t=60, r=100))  # Aumenta o espaço à direita
 
+    # Agrupamento de fontes
+    dff_pipeline['deal_source'] = (
+        dff_pipeline['deal_source']
+        .fillna('Sem rastreio')
+        .replace({'Desconhecido': 'Sem rastreio', 'Outros': 'Sem rastreio', '': 'Sem rastreio'})
+    )
 
+    # Contagens
+    total = dff_pipeline['deal_source'].value_counts()
+    segunda = dff_pipeline[dff_pipeline['motivos_nao_aprovacao'] == 'ENVIADOS PARA 2º ANÁLISE']['deal_source'].value_counts()
+    ganhos = dff_pipeline[dff_pipeline['win'] == True]['deal_source'].value_counts()
 
-    # Gráfico 4
-    total = dff_pipeline['deal_source'].replace({'Desconhecido': 'Sem rastreio', 'Outros': 'Sem rastreio'}).value_counts()
-    segunda = dff_pipeline[dff_pipeline['motivos_nao_aprovacao'] == 'ENVIADOS PARA 2º ANÁLISE']['deal_source'].replace({'Desconhecido': 'Sem rastreio', 'Outros': 'Sem rastreio'}).value_counts()
-    resultado = pd.DataFrame({'Total de Leads': total, 'Leads ENVIADOS PARA 2ª ANÁLISE': segunda}).fillna(0).astype(int).groupby(level=0).sum()
-    resultado = resultado[resultado['Total de Leads'] > 50].sort_values('Total de Leads', ascending=False)
+   # Agrupamento
+    resultado = pd.DataFrame({
+        'Total de Leads': total,
+        'Leads ENVIADOS PARA 2ª ANÁLISE': segunda,
+        'Leads GANHOS': ganhos
+    }).fillna(0).astype(int)
 
+    # Calcular "Outros" e "Total"
+    resultado['Outros'] = resultado['Total de Leads'] - resultado['Leads ENVIADOS PARA 2ª ANÁLISE'] - resultado['Leads GANHOS']
+    resultado['Total'] = resultado['Leads GANHOS'] + resultado['Leads ENVIADOS PARA 2ª ANÁLISE'] + resultado['Outros']
+
+    resultado = resultado.reset_index()
+
+    # Filtrar estratégias com pelo menos 3% do total geral
+    limite = resultado['Total'].sum() * 0.03
+    resultado = resultado[resultado['Total'] >= limite]
+
+    resultado = resultado.sort_values(by='Total', ascending=False)
+
+    # Gráfico empilhado com ordem GANHOS → 2ª ANÁLISE → OUTROS
     fig_marketing = go.Figure()
-    fig_marketing.add_trace(go.Bar(x=resultado.index, y=resultado['Leads ENVIADOS PARA 2ª ANÁLISE'], name='Enviados p/ 2ª Análise', marker_color='#FF6F61', text=resultado['Leads ENVIADOS PARA 2ª ANÁLISE'], textposition='inside'))
-    fig_marketing.add_trace(go.Bar(x=resultado.index, y=resultado['Total de Leads'] - resultado['Leads ENVIADOS PARA 2ª ANÁLISE'], name='Demais Leads', marker_color='#6B5B95', text=resultado['Total de Leads'], textposition='outside'))
-    fig_marketing.update_layout(title='Leads por Estratégia de Marketing (com destaque p/ 2ª Análise)', barmode='stack', template='plotly_white',bargap=0.2, uniformtext_minsize=8,uniformtext_mode='hide', margin=dict(t=60))
+
+    fig_marketing.add_trace(go.Bar(
+        x=resultado['deal_source'],
+        y=resultado['Leads GANHOS'],
+        name='Leads GANHOS',
+        marker_color='#28a745',
+        text=resultado['Leads GANHOS'],
+        textposition='inside'
+    ))
+    fig_marketing.add_trace(go.Bar(
+        x=resultado['deal_source'],
+        y=resultado['Leads ENVIADOS PARA 2ª ANÁLISE'],
+        name='Enviados p/ 2ª Análise',
+        marker_color='#FF6F61',
+        text=resultado['Leads ENVIADOS PARA 2ª ANÁLISE'],
+        textposition='inside'
+    ))
+    fig_marketing.add_trace(go.Bar(
+        x=resultado['deal_source'],
+        y=resultado['Outros'],
+        name='Outros Leads',
+        marker_color='#6B5B95',
+        text=resultado['Total'],  # Mostra o TOTAL no topo
+        textposition='inside'     # Mesmo local visual onde aparecia o 791
+    ))
+
+    # Atualizar layout
+    fig_marketing.update_layout(
+        title='Leads por Estratégia de Marketing (Ganhos, 2ª Análise e Outros)',
+        barmode='stack',
+        template='plotly_white',
+        bargap=0.2,
+        yaxis_title='Total de Leads',
+        uniformtext_minsize=8,
+        uniformtext_mode='hide',
+        margin=dict(t=60)
+    )
+
+
+
+
     return html.Div([
-    html.Div([dcc.Graph(figure=fig)], style={
-        "backgroundColor": "#ffffff",
-        "padding": "20px",
-        "marginBottom": "30px",
-        "borderRadius": "8px",
-        "boxShadow": "0 2px 6px rgba(0,0,0,0.05)"
-    }),
-    html.Div([dcc.Graph(figure=fig_late)], style={
-        "backgroundColor": "#ffffff",
-        "padding": "20px",
-        "marginBottom": "30px",
-        "borderRadius": "8px",
-        "boxShadow": "0 2px 6px rgba(0,0,0,0.05)"
-    }),
-    html.Div([dcc.Graph(figure=fig_motivos)], style={
-        "backgroundColor": "#ffffff",
-        "padding": "20px",
-        "marginBottom": "30px",
-        "borderRadius": "8px",
-        "boxShadow": "0 2px 6px rgba(0,0,0,0.05)"
-    }),
-    html.Div([dcc.Graph(figure=fig_marketing)], style={
-        "backgroundColor": "#ffffff",
-        "padding": "20px",
-        "marginBottom": "30px",
-        "borderRadius": "8px",
-        "boxShadow": "0 2px 6px rgba(0,0,0,0.05)"
-    }),
-], style={"maxWidth": "1200px", "margin": "auto"})
+        html.Div([dcc.Graph(figure=fig)], style={"backgroundColor": "#ffffff", "padding": "20px", "marginBottom": "30px", "borderRadius": "8px", "boxShadow": "0 2px 6px rgba(0,0,0,0.05)"}),
+        html.Div([dcc.Graph(figure=fig_late)], style={"backgroundColor": "#ffffff", "padding": "20px", "marginBottom": "30px", "borderRadius": "8px", "boxShadow": "0 2px 6px rgba(0,0,0,0.05)"}),
+        mapa_component,
+        html.Div([dcc.Graph(figure=fig_motivos)], style={"backgroundColor": "#ffffff", "padding": "20px", "marginBottom": "30px", "borderRadius": "8px", "boxShadow": "0 2px 6px rgba(0,0,0,0.05)"}),
+        html.Div([dcc.Graph(figure=fig_marketing)], style={"backgroundColor": "#ffffff", "padding": "20px", "marginBottom": "30px", "borderRadius": "8px", "boxShadow": "0 2px 6px rgba(0,0,0,0.05)"})
+    ], style={"maxWidth": "1200px", "margin": "auto"})
 
 
 # === ATENDENTES - Callback gráfico de barras
